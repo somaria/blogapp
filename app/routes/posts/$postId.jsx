@@ -11,8 +11,11 @@ import {
 import { useLoaderData } from '@remix-run/react'
 import { redirect } from '@remix-run/node'
 import { db } from '~/utils/db.server'
+import { getUser } from '../../utils/session.server'
 
-export const loader = async ({ params }) => {
+export const loader = async ({ request, params }) => {
+  const user = await getUser(request)
+
   const post = await db.post.findUnique({
     where: { id: params.postId },
     include: {
@@ -22,20 +25,24 @@ export const loader = async ({ params }) => {
 
   if (!post) throw new Error('Post not found')
 
-  const data = { post }
+  const data = { post, user }
   return data
 }
 
 export const action = async ({ request, params }) => {
   const form = await request.formData()
   if (form.get('_method') === 'delete') {
+    const user = await getUser(request)
+
     const post = await db.post.findUnique({
       where: { id: params.postId },
     })
 
     if (!post) throw new Error('Post not found')
 
-    await db.post.delete({ where: { id: params.postId } })
+    if (user && post.userId === user.id) {
+      await db.post.delete({ where: { id: params.postId } })
+    }
 
     return redirect('/posts')
   }
@@ -43,7 +50,7 @@ export const action = async ({ request, params }) => {
 
 const Post = () => {
   const params = useParams()
-  const { post } = useLoaderData()
+  const { post, user } = useLoaderData()
   return (
     <div>
       <div className='page-header'>
@@ -55,10 +62,12 @@ const Post = () => {
       <div className='page-content'>{post.body}</div>
       <div className='page-content'>{post.user.username}</div>
       <div className='page-footer'>
-        <form method='post'>
-          <input type='hidden' name='_method' value='delete' />
-          <button className='btn btn-delete'>Delete</button>
-        </form>
+        {user.id === post.userId && (
+          <form method='post'>
+            <input type='hidden' name='_method' value='delete' />
+            <button className='btn btn-delete'>Delete</button>
+          </form>
+        )}
       </div>
     </div>
   )

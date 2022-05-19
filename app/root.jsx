@@ -6,8 +6,10 @@ import {
   Scripts,
   ScrollRestoration,
   Link,
+  useLoaderData,
 } from '@remix-run/react'
 import globalStylesUrl from '../app/styles/global.css'
+import { getUser } from './utils/session.server'
 
 export const meta = () => ({
   description: 'A cool blog built with Remix',
@@ -18,6 +20,15 @@ export const meta = () => ({
 })
 
 export const links = () => [{ rel: 'stylesheet', href: globalStylesUrl }]
+
+export const loader = async ({ request }) => {
+  const user = await getUser(request)
+
+  const data = {
+    user,
+  }
+  return data
+}
 
 const App = () => {
   return (
@@ -48,6 +59,7 @@ const Document = ({ children, title }) => {
 }
 
 const Layout = ({ children }) => {
+  const { user } = useLoaderData()
   return (
     <div>
       <nav className='navbar'>
@@ -60,11 +72,21 @@ const Layout = ({ children }) => {
               Posts
             </Link>
           </li>
-          <li>
-            <Link to='/auth/login' className=''>
-              Login
-            </Link>
-          </li>
+          {user ? (
+            <li>
+              <form action='/auth/logout' method='post'>
+                <button className='btn' type='submit'>
+                  Logout {user.username}
+                </button>
+              </form>
+            </li>
+          ) : (
+            <li>
+              <Link to='/auth/login' className=''>
+                Login
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 
